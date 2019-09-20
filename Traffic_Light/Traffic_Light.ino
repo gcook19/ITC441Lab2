@@ -10,8 +10,8 @@ const int redState = 1;
 const int greenState = 2;
 const int yellowState = 3;
 bool automode = false;
-const char* ssid = "WIFI NAME";
-const char* password = "WIFI PASSWORD";
+const char* ssid = "WIFI SSID";
+const char* password = "WIFIPASSWORD";
 unsigned long currentMillis;
 unsigned long nextStage;
 WiFiServer server(80);
@@ -88,10 +88,10 @@ void loop() {
       delay(10);
     }
   }
-
-  //String request = client.readStringUntil('\r');
   client.setTimeout(100);
-  Serial.println(request);
+  String request = client.readStringUntil('\r');
+  
+  //Serial.println(request);
   client.flush();
   //Parse and deal with input.
   if(request.indexOf("/Off") != -1) {
@@ -143,7 +143,7 @@ void loop() {
     } else {
       client.print("manual");  
     }
-    client.print("\",\"light\":\");
+    client.print("\",\"light\":\"");
     if(curState == redState) {
       client.print("red");
     } else if (curState == greenState) {
@@ -166,8 +166,104 @@ void loop() {
     
   } else {
     //I need to output a web page here.
+    client.println("<HTML>");
+    client.println("<HEAD>");
+    client.println("<style>");
+    client.println("table, th, td {");
+    client.println("  border: 1px solid black;");
+    client.println("}");
+    client.println("");
+    client.println(".red{background-color: red;}");
+    client.println(".yellow{background-color: yellow;}");
+    client.println(".green{background-color: green;}");
+    client.println(".white{background-color: white;}");
+    client.println("</style>");
+    client.println("<script>");
+    client.println("window.onload = function () {");
+    client.println("  var b1 = document.getElementById(\"Off\");");
+    client.println("  var b2 = document.getElementById(\"Auto\");");
+    client.println("  var b3 = document.getElementById(\"Red\");");
+    client.println("  var b4 = document.getElementById(\"Yellow\");");
+    client.println("  var b5 = document.getElementById(\"Green\");");
+    client.println("  ");
+    client.println("  b1.onclick = handler;");
+    client.println("  b2.onclick = handler;");
+    client.println("  b3.onclick = handler;");
+    client.println("  b4.onclick = handler;");
+    client.println("  b5.onclick = handler;");
+    client.println("}");
+    client.println("");
+    client.println("function handler() {");
+    client.println("  var radios = document.getElementsByName('Traffic');");
+    client.println("  var radioval = \"\";");
+    client.println("  for (var i = 0, length = radios.length; i < length; i++)");
+    client.println("  {");
+    client.println("    if (radios[i].checked)");
+    client.println("    {");
+    client.println("      radioval = radios[i].value.toLowerCase();");
+    client.println("");
+    client.println("    // only one radio can be logically checked, don't check the rest");
+    client.println("    break;");
+    client.println("    }");
+    client.println("  }");
+    client.println("  var colorchangeurl = \"/\" + radioval;");
+    client.println("  var newhttp = new XMLHttpRequest();");
+    client.println("  newhttp.open(\"GET\", colorchangeurl);");
+    client.println("  newhttp.send();");
+    client.println("  ");
+    client.println("}");
+    client.println("");
+    client.println("setInterval( function() {");
+    client.println("  var xmlhttp = new XMLHttpRequest();");
+    client.println("  xmlhttp.onreadystatechange = function() {");
+    client.println("    if (this.readyState == 4 && this.status == 200) {");
+    client.println("      var myObj = JSON.parse(this.responseText);");
+    client.println("      document.getElementById(\"Mode\").innerHTML = myObj.mode;");
+    client.println("      document.getElementById(\"Light\").innerHTML = myObj.light;");
+    client.println("      var cell = document.getElementById(\"Light\");");
+    client.println("      if(myObj.light == \"green\") {");
+    client.println("        cell.className = \"green\";");
+    client.println("      } else if (myObj.light == \"yellow\") {");
+    client.println("        cell.className = \"yellow\";");
+    client.println("      } else if (myObj.light == \"red\") {");
+    client.println("        cell.className = \"red\";");
+    client.println("      } else {");
+    client.println("        cell.className = \"white\";");
+    client.println("      }");
+    client.println("    }");
+    client.println("  };");
+    client.println("  xmlhttp.open(\"GET\", \"/Status\", true);");
+    client.println("  xmlhttp.send();");
+    client.println("}, 1000);");
+    client.println("</script>");
+    client.println("</HEAD>");
+    client.println("<BODY>");
+    client.println("<table>");
+    client.println("<tr>");
+    client.println("  <td><font size=7>Mode:</td>");
+    client.println("    <td><font size=7 id=Mode>&nbsp;</font></td>");
+    client.println("</tr>");
+    client.println("<tr>");
+    client.println("  <td><font size=7>State:</td>");
+    client.println("  <td><font size=7 ID=Light>&nbsp;</td>");
+    client.println("</tr>");
+    client.println("</table>");
+    client.println("");
+    client.println("<input type=\"radio\" name=\"Traffic\" id=\"Off\" value=\"Off\" />");
+    client.println("<label for=\"Off\">Off</label>");
+    client.println("<input type=\"radio\" name=\"Traffic\" id=\"Auto\" value=\"Auto\" />");
+    client.println("<label for=\"Auto\">Auto</label>");
+    client.println("<input type=\"radio\" name=\"Traffic\" id=\"Red\" value=\"Red\" />");
+    client.println("<label for=\"Red\">Red</label>");
+    client.println("<input type=\"radio\" name=\"Traffic\" id=\"Yellow\" value=\"Yellow\" />");
+    client.println("<label for=\"Yellow\">Yellow</label>");
+    client.println("<input type=\"radio\" name=\"Traffic\" id=\"Green\" value=\"Green\" />");
+    client.println("<label for=\"Green\">Green</label>");
+    client.println("</body>");
+    client.println("</html>");
   }
   currentMillis = millis();
+
   ///Light control is down here.
   if(automode && nextStage <= currentMillis) {
     //We are in Auto mode.
@@ -176,25 +272,105 @@ void loop() {
         redLight();
         curState = redState;
         nextStage = currentMillis + 15000;
+        Serial.println("Current State is Red.");
     }else if ( curState == redState) {
         //Go to green.
         greenLight();
         curState = greenState;
         nextStage = currentMillis + 15000;
+        Serial.println("Current State is Green.");
     } else if( curState == greenState ) {
       //Go to yellow
        yellowLight();
        curState = yellowState;
        nextStage = currentMillis + 4000;
+       Serial.println("Current State is Yellow.");
     } else {
       //The only state left is the Yellow State.
       //Go to Red State
       redLight();
       curState = redState;
       nextStage = currentMillis + 15000;
+      Serial.println("Current State is Red.");
     }
+    Serial.print("CurMillis is: ");
+    Serial.println(currentMillis);
+    Serial.print("Next Stage is: ");
+    Serial.println(nextStage);
   } else if (automode == false && nextStage <= currentMillis) {
     //Manual Mode. First we check if something is the Queue before we try to do anything.
+    if(q_getCount(&stateQueue) > 0) {
+      //There is stuff in the Queue. We need to go to work.
+      int nextState;
+      //Peeking what hte next command is
+      q_peek(&stateQueue,&nextState);
+      if(curState == offState) {
+        //We skip checking the off state. We are already off, so we don't have to do anything.
+        if(nextState == greenState) {
+          greenLight();
+          curState == greenState;
+          Serial.println("Green");
+        } else if (nextState == redState) {
+          redLight();
+          curState = redState;
+          Serial.println("Red");
+        } else if (nextState == yellowState) {
+          yellowLight();
+          curState = yellowState;
+          Serial.println("Yellow");
+        }
+      } else if (curState == greenState) {
+        //A lit light can only go to two places. To one other lit light or to off.
+        if(nextState == yellowState || nextState == redState) {
+          yellowLight();
+          curState = yellowState;
+          Serial.println("Yellow");
+        } else if (nextState == offState) {
+          offLight();
+          curState = offState;
+          Serial.println("Off");
+        }
+      } else if (curState == yellowState) {
+        if(nextState == redState || nextState == greenState) {
+          redLight();
+          curState = redState;
+          Serial.println("Red");
+        } else if (nextState == offState) {
+          offLight();
+          curState = offState;
+          Serial.println("Off");
+        }
+      } else {
+        //This should mean our current state is the redState. The next command is just in case something goes wrong.
+        curState = redState;
+        if(nextState == greenState || nextState == yellowState) {
+          greenLight();
+          curState = greenState;
+          Serial.println("Green");
+        } else if(nextState == offState) {
+          offLight();
+          curState = offState;
+          Serial.println("Off");
+        }
+      }
+      if(curState == nextState) {
+        //We've reached the state we need to. We should pop it off the Queue so we can work on getting to the next requested state.
+        Serial.print("Popping ");
+        if(curState == redState) {
+          Serial.print("red");
+        } else if (curState == yellowState) {
+          Serial.print("yellow");
+        } else if (curState == greenState) {
+          Serial.print("green");
+        } else {
+          Serial.print("off");
+        }
+        Serial.println(" from Queue.");
+        q_pop(&stateQueue, &nextState);
+      }
+      //Programming our next wait.
+      nextStage = currentMillis + 1000;
+    }
   }
 
 }
