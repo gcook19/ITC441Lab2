@@ -94,8 +94,13 @@ void loop() {
   //Serial.println(request);
   client.flush();
   //Parse and deal with input.
-  if(request.indexOf("/Off") != -1) {
-    automode = false;
+  currentMillis = millis();
+  if(request.indexOf("/off") != -1) {
+    if(automode) {
+      nextStage = currentMillis;
+      automode = false;
+    }
+    
     //Queuing up this request
     q_push(&stateQueue, &offState);
     Serial.println("Queued Off State.");
@@ -104,17 +109,26 @@ void loop() {
     client.println("");
   }
   
-  if(request.indexOf("/Green") != -1) {
-    automode = false;
+  if(request.indexOf("/green") != -1) {
+    if(automode) {
+      nextStage = currentMillis;
+      automode = false;
+    }
+
     //Queuing up this request
     q_push(&stateQueue, &greenState);
     Serial.println("Queued Green State.");
     client.println("HTTP/1.1 200 OK");
     client.println("Content-Type: text/html");
     client.println("");
+    nextStage = currentMillis;
   }
-  else if(request.indexOf("/Red") != -1) {
-    automode = false;
+  else if(request.indexOf("/red") != -1) {
+     if(automode) {
+      nextStage = currentMillis;
+      automode = false;
+    }
+    
     //Queuing up this request
     q_push(&stateQueue, &redState);
     Serial.println("Queued Red State.");
@@ -122,8 +136,12 @@ void loop() {
     client.println("Content-Type: text/html");
     client.println("");
   }
-  else if(request.indexOf("/Yellow") != -1) {
-    automode = false;
+  else if(request.indexOf("/yellow") != -1) {
+    if(automode) {
+      nextStage = currentMillis;
+      automode = false;
+    }
+    
     //Queuing up this request
     q_push(&stateQueue, &yellowState);
     Serial.println("Queued Yellow State.");
@@ -155,8 +173,9 @@ void loop() {
     }
     client.println("\"}");
   }
-  else if(request.indexOf("/Auto") != -1) {
+  else if(request.indexOf("/auto") != -1) {
     automode = true;
+    nextStage = currentMillis;
     //Clearing the Queue
     q_clean(&stateQueue);
     Serial.println("Auto Mode.");
@@ -308,7 +327,7 @@ void loop() {
         //We skip checking the off state. We are already off, so we don't have to do anything.
         if(nextState == greenState) {
           greenLight();
-          curState == greenState;
+          curState = greenState;
           Serial.println("Green");
         } else if (nextState == redState) {
           redLight();
